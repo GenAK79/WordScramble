@@ -31,6 +31,7 @@ const MESSAGES = {
   ALREADY_RESOLVED: 'That play has already been decided.',
   NO_OPEN_CHALLENGE: 'There is no open challenge.',
   MOVER_CANNOT_VOTE: "You can't vote on your own play.",
+  CHALLENGER_CANNOT_VOTE: "You can't vote on your own challenge — the other players decide.",
   ALREADY_VOTED: "You've already voted.",
   MOVER_CANNOT_FINALIZE: 'Another player needs to confirm the end of the game.'
 };

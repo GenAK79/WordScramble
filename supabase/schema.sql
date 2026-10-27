@@ -756,18 +756,24 @@ begin
   perform public._touch(g.id);
 end $$;
 
--- Every player except the mover votes. Unanimous accept = word stands.
--- Any reject ends the vote immediately and the play is undone.
+-- The jury is everyone except the player who played AND the player who
+-- challenged (so a challenger cannot vote to instantly undo a play).
+-- Unanimous accept = word stands; any reject undoes the play at once.
+-- Exception: in a 2-player game there is nobody else, so the challenger is the
+-- sole voter (they look the word up and decide).
 create or replace function public.cast_vote(p_game uuid, p_accept boolean) returns jsonb
 language plpgsql security definer set search_path = public, pg_temp as $$
-declare g public.games; me public.players; mv public.moves; accepts int; result text;
+declare g public.games; me public.players; mv public.moves; accepts int; jurors int; n int;
 begin
   g := public._lock_game(p_game);
   me := public._me(p_game);
   select * into mv from public.moves where game_id = g.id and seq = g.move_seq and status = 'challenged';
   if not found then raise exception 'NO_OPEN_CHALLENGE'; end if;
   if mv.player_id = me.id then raise exception 'MOVER_CANNOT_VOTE'; end if;
+  n := public._player_count(g.id);
+  if mv.challenge_by = me.id and n > 2 then raise exception 'CHALLENGER_CANNOT_VOTE'; end if;
   if p_accept is null then raise exception 'INVALID_VOTE'; end if;
+  jurors := case when n = 2 then 1 else n - 2 end;
   begin
     insert into public.challenge_votes (move_id, player_id, accept) values (mv.id, me.id, p_accept);
   exception when unique_violation then
@@ -779,7 +785,7 @@ begin
     return jsonb_build_object('result', 'reverted');
   end if;
   select count(*)::int into accepts from public.challenge_votes where move_id = mv.id and accept;
-  if accepts >= public._player_count(g.id) - 1 then
+  if accepts >= jurors then
     perform public._uphold_move(g.id, mv.seq);
     return jsonb_build_object('result', 'upheld');
   end if;

@@ -92,15 +92,22 @@ export function ChallengeDialog({ move, players, meId, isHost, busy, onVote, onH
   const byId = Object.fromEntries(players.map((p) => [p.id, p]));
   const mover = byId[move.player_id];
   const challenger = byId[move.challenge_by];
-  const voters = players.filter((p) => p.id !== move.player_id);
+  // Jury = everyone except the mover and the challenger. With only two players
+  // there is nobody else, so the challenger is the sole voter.
+  const twoPlayer = players.length === 2;
+  const voters = players.filter((p) => p.id !== move.player_id && (twoPlayer || p.id !== move.challenge_by));
   const myVote = move.votes?.[meId];
-  const canVote = meId !== move.player_id && myVote === undefined;
+  const isChallenger = meId === move.challenge_by;
+  const canVote = meId !== move.player_id && (twoPlayer || !isChallenger) && myVote === undefined;
   return (
     <Modal title="Word challenged">
       <p><strong>{challenger?.name}</strong> challenged <strong>{mover?.name}</strong>'s play. Check the words, then vote.</p>
       <WordLinks words={move.words ?? []} />
       <p className="muted small-text">
-        Every player except {mover?.name} votes. The play stays only if everyone accepts; otherwise the tiles go back and {mover?.name} loses the turn.
+        {twoPlayer
+          ? `${challenger?.name} decides, as the only other player.`
+          : `The other players vote — not ${mover?.name} or ${challenger?.name}.`}
+        {' '}The play stays only if every voter accepts; otherwise the tiles go back and {mover?.name} loses the turn.
       </p>
       <ul className="vote-list">
         {voters.map((p) => {
@@ -122,7 +129,8 @@ export function ChallengeDialog({ move, players, meId, isHost, busy, onVote, onH
         </div>
       )}
       {!canVote && meId === move.player_id && <p className="muted">Waiting for the other players to vote…</p>}
-      {!canVote && meId !== move.player_id && <p className="muted">Your vote is in. Waiting for the others…</p>}
+      {!canVote && isChallenger && !twoPlayer && <p className="muted">You raised the challenge, so the other players decide. Waiting for their votes…</p>}
+      {!canVote && meId !== move.player_id && !isChallenger && <p className="muted">Your vote is in. Waiting for the others…</p>}
       {isHost && (
         <button className="btn ghost small" disabled={busy} onClick={onHostAccept}>
           Host: accept the words (for absent players)

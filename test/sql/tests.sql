@@ -207,13 +207,14 @@ begin
 
   perform t.u(1);
   perform t.fails('mover cannot vote', format($q$select public.cast_vote(%L, true)$q$, g), 'MOVER_CANNOT_VOTE');
-  perform t.u(3);
-  v := public.cast_vote(g, true);
-  perform t.eq('first accept leaves vote pending', v ->> 'result', 'pending');
-  perform t.fails('no double vote', format($q$select public.cast_vote(%L, false)$q$, g), 'ALREADY_VOTED');
   perform t.u(2);
+  perform t.fails('challenger cannot vote (accept)', format($q$select public.cast_vote(%L, true)$q$, g), 'CHALLENGER_CANNOT_VOTE');
+  perform t.fails('challenger cannot vote (reject)', format($q$select public.cast_vote(%L, false)$q$, g), 'CHALLENGER_CANNOT_VOTE');
+  perform t.eq('challenger attempts left the challenge open', (select status from public.moves where game_id = g and seq = 1), 'challenged');
+  perform t.eq('challenger attempts recorded no votes', (select count(*)::int from public.challenge_votes), 0);
+  perform t.u(3);
   v := public.cast_vote(g, false);
-  perform t.eq('one reject undoes the play', v ->> 'result', 'reverted');
+  perform t.eq('juror reject undoes the play', v ->> 'result', 'reverted');
   perform t.eq('move marked reverted', (select status from public.moves where game_id = g and seq = 1), 'reverted');
   perform t.eq('board cleared', (select count(*)::int from public.board_tiles where game_id = g), 0);
   perform t.eq('score removed', t.score(g, 0), 0);
@@ -234,10 +235,7 @@ begin
   perform public.challenge_move(g);
   perform t.u(1);
   v := public.cast_vote(g, true);
-  perform t.eq('one of two accepts: pending', v ->> 'result', 'pending');
-  perform t.u(3);
-  v := public.cast_vote(g, true);
-  perform t.eq('unanimous accept upholds', v ->> 'result', 'upheld');
+  perform t.eq('3 players: the one juror accepting upholds', v ->> 'result', 'upheld');
   perform t.eq('move upheld', (select status from public.moves where game_id = g and seq = 2), 'upheld');
   perform t.eq('score kept', t.score(g, 1), 8);
   perform t.eq('turn goes on to seat 2', (select turn_seat from public.games where id = g), 2);
@@ -261,24 +259,62 @@ begin
   perform t.fails('cannot challenge a pass', format($q$select public.challenge_move(%L)$q$, g), 'NOTHING_TO_CHALLENGE');
 end $$;
 
--- 2-player challenge: the single voter decides.
+-- 2-player challenge: nobody else exists, so the challenger is the sole voter.
 do $$
 declare g uuid; v jsonb;
 begin
   g := t.new_game(2);
   perform t.set_rack(g, 0, 'ABQQQQQ');
   perform public.play_move(g, t.pm(7,7,'h','AB'));
+  perform t.u(1);
+  perform t.fails('no vote possible without an open challenge', format($q$select public.cast_vote(%L, true)$q$, g), 'NO_OPEN_CHALLENGE');
   perform t.u(2);
   perform public.challenge_move(g);
+  perform t.u(1);
+  perform t.fails('2 players: mover cannot vote on challenge', format($q$select public.cast_vote(%L, true)$q$, g), 'MOVER_CANNOT_VOTE');
+  perform t.u(2);
   v := public.cast_vote(g, true);
-  perform t.eq('2 players: lone voter accepts -> upheld', v ->> 'result', 'upheld');
+  perform t.eq('2 players: challenger accepts -> upheld', v ->> 'result', 'upheld');
 end $$;
 
--- Host can force-accept a stalled vote.
+-- 4 players: challenger and mover are excluded, the two others must both accept.
 do $$
 declare g uuid; v jsonb;
 begin
-  g := t.new_game(3);
+  g := t.new_game(4);
+  perform t.set_rack(g, 0, 'ABQQQQQ');
+  perform public.play_move(g, t.pm(7,7,'h','AB'));
+  perform t.u(2);
+  perform public.challenge_move(g);
+  perform t.fails('4 players: challenger cannot vote', format($q$select public.cast_vote(%L, true)$q$, g), 'CHALLENGER_CANNOT_VOTE');
+  perform t.u(3);
+  v := public.cast_vote(g, true);
+  perform t.eq('4 players: first juror accepts -> pending', v ->> 'result', 'pending');
+  perform t.u(4);
+  v := public.cast_vote(g, true);
+  perform t.eq('4 players: both jurors accept -> upheld', v ->> 'result', 'upheld');
+end $$;
+
+do $$
+declare g uuid; v jsonb;
+begin
+  g := t.new_game(4);
+  perform t.set_rack(g, 0, 'ABQQQQQ');
+  perform public.play_move(g, t.pm(7,7,'h','AB'));
+  perform t.u(2);
+  perform public.challenge_move(g);
+  perform t.u(3);
+  perform public.cast_vote(g, true);
+  perform t.u(4);
+  v := public.cast_vote(g, false);
+  perform t.eq('4 players: one juror rejecting undoes the play', v ->> 'result', 'reverted');
+end $$;
+
+-- Host can force-accept a stalled vote (4 players so a vote can be left pending).
+do $$
+declare g uuid; v jsonb;
+begin
+  g := t.new_game(4);
   perform t.set_rack(g, 0, 'ABQQQQQ');
   perform public.play_move(g, t.pm(7,7,'h','AB'));
   perform t.u(2);

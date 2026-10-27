@@ -84,11 +84,11 @@ Collins Scrabble Words and the Oxford dictionaries are licensed word lists, so n
 
 1. After a play, any *other* player can press **Challenge** until the next player acts.
 2. The challenge screen lists the words formed with links to look each one up in Collins' online dictionary. (That is Collins' general dictionary, which is close to — but not identical with — the tournament Scrabble word list.)
-3. **Every player except the one who played votes.** The word stands only if all accept; a single reject ends the vote and undoes the play.
+3. **The jury is everyone except the player who played and the player who challenged** (so a challenger can't simply vote their own challenge through). The word stands only if every juror accepts; a single reject ends the vote and undoes the play.
 4. Undone play: tiles return to the rack, any tiles drawn go back into the bag, the score is removed and the player loses that turn. There is no penalty for a failed challenge.
 5. If the player who goes out is challenged and the word is rejected, the game resumes. Otherwise another player taps **Finish game** (or the challenge vote upholds the play), which applies the end-of-game scoring.
 
-Two players: the single other player is the sole voter, so they decide after looking the word up.
+Two players: there is nobody else, so the challenger is the sole voter and decides after looking the word up.
 
 If a player disappears, the **host** can skip their turn, accept a stalled vote (missing votes count as accept), or finish a game that is waiting on confirmations. Skipping is not counted as a scoreless turn.
 
